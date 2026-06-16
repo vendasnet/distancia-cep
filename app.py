@@ -1,18 +1,12 @@
 from flask import Flask, jsonify, request
 import requests
 import math
-import time
 
 app = Flask(__name__)
 
 CEP_LOJA = "30710040"
-PRECO_PRODUTO = 199.90
-
-FAIXAS = [
-    (7, 25.00),
-    (12, 35.00),
-    (20, 45.00),
-]
+LAT_LOJA = -19.9191
+LON_LOJA = -43.9386
 
 def get_coords(cep):
     cep = cep.replace("-", "").strip()
@@ -24,25 +18,15 @@ def get_coords(cep):
         uf = via.get('uf', '')
         logradouro = via.get('logradouro', '')
         bairro = via.get('bairro', '')
-        query = f"{logradouro}, {bairro}, {cidade}, {uf}, Brasil"
-        time.sleep(0.5)
+        query = f"{logradouro} {bairro} {cidade} {uf} Brasil"
         resp = requests.get(
-            "https://photon.komoot.io/api/",
-            params={"q": query, "limit": 1, "lang": "pt"},
+            "https://geocode.maps.co/search",
+            params={"q": query, "api_key": "6849df7d3b537612390809fao4aedb7"},
             timeout=10
         ).json()
-        features = resp.get("features", [])
-        if not features:
-            resp2 = requests.get(
-                "https://photon.komoot.io/api/",
-                params={"q": f"{cidade}, {uf}, Brasil", "limit": 1, "lang": "pt"},
-                timeout=10
-            ).json()
-            features = resp2.get("features", [])
-        if not features:
+        if not resp:
             return None
-        coords = features[0]["geometry"]["coordinates"]
-        return float(coords[1]), float(coords[0])
+        return float(resp[0]["lat"]), float(resp[0]["lon"])
     except Exception:
         return None
 
@@ -55,21 +39,16 @@ def haversine(c1, c2):
     a = math.sin(dlat/2)**2 + math.cos(lat1)*math.cos(lat2)*math.sin(dlon/2)**2
     return round(R * 2 * math.asin(math.sqrt(a)), 1)
 
-@app.route("/frete")
-def frete():
+@app.route("/distancia")
+def distancia():
     cep2 = request.args.get("cep", "")
     if not cep2:
-        return jsonify({"resultado": "CEP inválido. Verifique e tente novamente."})
-    c1 = get_coords(CEP_LOJA)
+        return jsonify({"distancia_km": "ERRO"})
     c2 = get_coords(cep2)
-    if not c1 or not c2:
-        return jsonify({"resultado": "CEP inválido. Verifique e tente novamente."})
-    distancia = haversine(c1, c2)
-    for limite, valor_frete in FAIXAS:
-        if distancia <= limite:
-            total = PRECO_PRODUTO + valor_frete
-            return jsonify({"resultado": f"{total:.2f}"})
-    return jsonify({"resultado": "Entrega indisponível para essa região."})
+    if not c2:
+        return jsonify({"distancia_km": "ERRO"})
+    dist = haversine((LAT_LOJA, LON_LOJA), c2)
+    return jsonify({"distancia_km": dist})
 
 if __name__ == "__main__":
     app.run()
