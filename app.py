@@ -1,23 +1,29 @@
 from flask import Flask, jsonify, request
 import requests
 import math
+import time
 
 app = Flask(__name__)
 
 def get_coords(cep):
     cep = cep.replace("-", "").strip()
-    via = requests.get(f"https://viacep.com.br/ws/{cep}/json/").json()
-    if "erro" in via:
+    try:
+        via = requests.get(f"https://viacep.com.br/ws/{cep}/json/", timeout=5).json()
+        if "erro" in via:
+            return None
+        endereco = f"{via.get('logradouro', '')}, {via['localidade']}, {via['uf']}, Brasil"
+        time.sleep(1)
+        nom = requests.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"q": endereco, "format": "json", "limit": 1},
+            headers={"User-Agent": "distancia-cep-app/1.0 (contato@email.com)"},
+            timeout=10
+        ).json()
+        if not nom:
+            return None
+        return float(nom[0]["lat"]), float(nom[0]["lon"])
+    except Exception:
         return None
-    endereco = f"{via.get('logradouro', '')}, {via['localidade']}, {via['uf']}, Brasil"
-    nom = requests.get(
-        "https://nominatim.openstreetmap.org/search",
-        params={"q": endereco, "format": "json", "limit": 1},
-        headers={"User-Agent": "distancia-cep-app"}
-    ).json()
-    if not nom:
-        return None
-    return float(nom[0]["lat"]), float(nom[0]["lon"])
 
 def haversine(c1, c2):
     R = 6371
