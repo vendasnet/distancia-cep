@@ -21,7 +21,7 @@ def get_coords(cep):
         query = f"{logradouro} {bairro} {cidade} {uf} Brasil"
         resp = requests.get(
             "https://geocode.maps.co/search",
-            params={"q": query, "api_key": "6849df7d3b537612390809fao4aedb7"},
+            params={"q": query, "api_key": "6a3167819f5a9890946261kse6d2d9e"},
             timeout=10
         ).json()
         if not resp:
