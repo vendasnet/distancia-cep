@@ -7,9 +7,12 @@ app = Flask(__name__)
 CEP_LOJA = "30710040"
 LAT_LOJA = -19.9191
 LON_LOJA = -43.9386
+API_KEY = "6a3167819f5a9890946261kse6d2d9e"
 
 def get_coords(cep):
     cep = cep.replace("-", "").strip()
+    if len(cep) != 8 or not cep.isdigit():
+        return None
     try:
         via = requests.get(f"https://viacep.com.br/ws/{cep}/json/", timeout=5).json()
         if "erro" in via:
@@ -18,15 +21,40 @@ def get_coords(cep):
         uf = via.get('uf', '')
         logradouro = via.get('logradouro', '')
         bairro = via.get('bairro', '')
-        query = f"{logradouro} {bairro} {cidade} {uf} Brasil"
+
+        # Tentativa 1: endereço completo
+        if logradouro:
+            query = f"{logradouro}, {bairro}, {cidade}, {uf}, Brasil"
+            resp = requests.get(
+                "https://geocode.maps.co/search",
+                params={"q": query, "api_key": API_KEY},
+                timeout=10
+            ).json()
+            if resp:
+                return float(resp[0]["lat"]), float(resp[0]["lon"])
+
+        # Tentativa 2: só bairro + cidade
+        if bairro:
+            query = f"{bairro}, {cidade}, {uf}, Brasil"
+            resp = requests.get(
+                "https://geocode.maps.co/search",
+                params={"q": query, "api_key": API_KEY},
+                timeout=10
+            ).json()
+            if resp:
+                return float(resp[0]["lat"]), float(resp[0]["lon"])
+
+        # Tentativa 3: só cidade + UF
+        query = f"{cidade}, {uf}, Brasil"
         resp = requests.get(
             "https://geocode.maps.co/search",
-            params={"q": query, "api_key": "6a3167819f5a9890946261kse6d2d9e"},
+            params={"q": query, "api_key": API_KEY},
             timeout=10
         ).json()
-        if not resp:
-            return None
-        return float(resp[0]["lat"]), float(resp[0]["lon"])
+        if resp:
+            return float(resp[0]["lat"]), float(resp[0]["lon"])
+
+        return None
     except Exception:
         return None
 
